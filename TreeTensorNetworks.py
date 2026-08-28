@@ -10,6 +10,9 @@ from misc import tlist, loc                                                     
 from contextlib import contextmanager
 import hamiltonian as hamm
 
+
+#Using Claude to bugfix the non convergence issue with Ar38.
+
 @contextmanager
 def timed(section, enabled=True, file=None):
     if not enabled:
@@ -712,14 +715,19 @@ class ttn:
             if logging:
                 fh.write(f'\nsweep {sweep_i}\n')
             sweep_energies = []
-            for j,locc in enumerate(self.sweep[1:]):
+            for j,locc in enumerate(self.sweep):
                 if verbose:
                     print(f'{locc}')
-                with timed(f'iso_loc_{locc}',logging,fh):
-                    self.shift_isometrisation_centre(sweep[j],sweep[j+1])
-                
-                    if verbose:
-                        print('isometrised')
+
+                # sweep[0] is already the isometrisation centre right after set_iso,
+                # so there is nothing to shift for j == 0. For every later site we
+                # move the centre from the previously-visited site to this one.
+                if j > 0:
+                    with timed(f'iso_loc_{locc}',logging,fh):
+                        self.shift_isometrisation_centre(sweep[j-1],sweep[j])
+
+                        if verbose:
+                            print('isometrised')
 
                 with timed('effective_network',logging,fh):
                     env_tensors = ctr.effective_network_full(self, locc)
@@ -738,10 +746,11 @@ class ttn:
                     if verbose:
                         print(f'leh optimised')
 
+                # evecs[:, level] is already unit-norm (eigh returns an orthonormal
+                # basis); normalising against the *old* tensor that's being
+                # overwritten was the bug that broke the canonical form.
+                self.tensors[locc] = evecs[:,level].reshape(self.shape(locc))
 
-                norm = np.linalg.norm(self.tensors[locc])
-                self.tensors[locc] = evecs[:,level].reshape(self.shape(locc)) / norm
-                
                 sweep_energies.append(evals[level])
 
                 if verbose:
@@ -988,4 +997,3 @@ ttn2 = ttn(layers = 4, max_bond_dim = 7, local_dim = 2, num_child_nodes = 2, num
 ttn3 = ttn(layers = 3, max_bond_dim = 5, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn4 = ttn(layers = 2, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn5 = ttn(layers = 1, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
-
