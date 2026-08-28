@@ -1,4 +1,5 @@
 import numpy as np
+from qiskit.quantum_info import SparsePauliOp
 import time
 import matplotlib.pyplot as plt
 from scipy.sparse.linalg import LinearOperator, eigsh
@@ -976,7 +977,7 @@ TO DO:
 
     
 ham1 = tfIsingH(8)
-ham2 = hamm.TFIsing(8,n_legs = 8,periodic=False)
+ham2 = hamm.TFIsing(7,n_legs = 8,periodic=False)
 ham4 = hamm.TFIsing(4,n_legs = 4,periodic=False)
 hamf = hamm.Free(8)
 ham3 = hamm.TFIsing(16, n_legs = 16,periodic = True)

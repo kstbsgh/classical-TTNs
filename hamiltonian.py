@@ -2,6 +2,8 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import eigsh
 
+# This is mostly Claude's work.
+
 def paulis():
     sx = np.array([[0, 1], [1, 0]], dtype=float)
     sz = np.array([[1, 0], [0, -1]], dtype=float)
@@ -13,6 +15,7 @@ class Hamiltonian:
         self.n_sites = n_sites
         self._single_site_terms = []
         self._two_site_terms    = []
+        self._multi_site_terms  = []   # terms touching 3+ sites, e.g. from Pauli strings
         self._matrix_cache      = None
 
     def _invalidate_cache(self):
@@ -26,16 +29,108 @@ class Hamiltonian:
         self._two_site_terms.append((op_i, op_j, i, j)) 
         self._invalidate_cache()
 
+    def add_multi_site(self, site_ops):
+        """
+        Add a general term touching 3 or more sites (e.g. from a weight->=3
+        Pauli string): the operator is the tensor product, over all sites,
+        of `op` on each `site` in `site_ops` and identity elsewhere.
+
+        site_ops : iterable of (site, op) pairs, each op a 2x2 array.
+                   Any overall scalar coefficient should be folded into
+                   one of the `op` matrices before calling this.
+        """
+        self._multi_site_terms.append(list(site_ops))
+        self._invalidate_cache()
+
     def single_site_terms(self):
         return self._single_site_terms
 
     def two_site_terms(self):
         return self._two_site_terms
 
+    def multi_site_terms(self):
+        return self._multi_site_terms
+
     def clear(self):
         self._single_site_terms.clear()
         self._two_site_terms.clear()
+        self._multi_site_terms.clear()
         self._invalidate_cache()
+
+    @classmethod
+    def from_SparsePauliOp(cls, pauli_op, n_legs=None):
+        """
+        Build a Hamiltonian from a Qiskit `SparsePauliOp`.
+
+        Each Pauli string in `pauli_op` is decomposed into a term on this
+        class: weight-1 strings become a single_site term, weight-2
+        strings become a two_site term, weight-0 (pure identity) strings
+        become a single_site identity term, and weight->=3 strings become
+        a multi_site term. The resulting Hamiltonian's to_matrix() equals
+        pauli_op.to_matrix() (as a sparse/dense array), up to floating
+        point error.
+
+        Parameters
+        ----------
+        pauli_op : qiskit.quantum_info.SparsePauliOp
+            The operator to convert.
+        n_legs : int, optional
+            Total number of sites/legs for the returned Hamiltonian.
+            Defaults to pauli_op.num_qubits. If larger, the extra legs
+            [pauli_op.num_qubits, n_legs) are simply untouched (identity),
+            matching the convention used elsewhere in this module.
+
+        Returns
+        -------
+        Hamiltonian
+
+        Note on qubit ordering
+        -----------------------
+        Qiskit labels each term as a string s = s_{n-1} s_{n-2} ... s_1 s_0,
+        read left to right, where s_q is the Pauli acting on qubit q (so
+        qubit n-1 is the left-most character, qubit 0 the right-most).
+        This class embeds site k as the k-th Kronecker factor from the
+        left (see _embed_single/_embed_two), which means the label's
+        left-to-right character order already matches this class's site
+        order: label[k] -> site k. Equivalently, Qiskit qubit index q
+        corresponds to site index (n_sites - 1 - q).
+        """
+        n_sites = pauli_op.num_qubits
+        if n_legs is None:
+            n_legs = n_sites
+        assert n_legs >= n_sites, "n_legs must be >= n_sites."
+
+        H = cls(n_legs)
+
+        sx, sz, I = paulis()
+        sy = np.array([[0, -1j], [1j, 0]], dtype=complex)
+        pauli_matrices = {"I": I, "X": sx, "Y": sy, "Z": sz}
+
+        for label, coeff in pauli_op.to_list():
+            # label[k] is the Pauli acting on this class's site k (see note above)
+            site_ops = list(label)
+            nontrivial = [(site, ch) for site, ch in enumerate(site_ops) if ch != "I"]
+
+            if len(nontrivial) == 0:
+                # Pure identity string: coeff * I_2 on one site reproduces
+                # coeff * (I on every site) once embedded.
+                H.add_single_site(0, coeff * I)
+
+            elif len(nontrivial) == 1:
+                site, ch = nontrivial[0]
+                H.add_single_site(site, coeff * pauli_matrices[ch])
+
+            elif len(nontrivial) == 2:
+                (i, ch_i), (j, ch_j) = nontrivial
+                H.add_two_site(i, j, coeff * pauli_matrices[ch_i], pauli_matrices[ch_j])
+
+            else:
+                (site0, ch0), *rest = nontrivial
+                terms = [(site0, coeff * pauli_matrices[ch0])]
+                terms += [(site, pauli_matrices[ch]) for site, ch in rest]
+                H.add_multi_site(terms)
+
+        return H
 
     def _embed_single(self, site, op):
         """Build sparse single-site operator via sparse Kronecker products."""
@@ -61,6 +156,15 @@ class Hamiltonian:
                 out = sparse.kron(out, I, format="csr")
         return out
 
+    def _embed_multi(self, site_ops):
+        """Build a sparse operator touching an arbitrary set of sites."""
+        I = sparse.eye(2, format="csr")
+        ops_by_site = {site: sparse.csr_matrix(op) for site, op in site_ops}
+        out = sparse.eye(1, format="csr")
+        for k in range(self.n_sites):
+            out = sparse.kron(out, ops_by_site.get(k, I), format="csr")
+        return out
+
     def to_matrix(self, dense=False):
         """Return the Hamiltonian as a sparse CSR matrix (or dense array)."""
         if self._matrix_cache is None:
@@ -70,6 +174,8 @@ class Hamiltonian:
                 H = H + self._embed_single(site, op)
             for op_i, op_j, i, j in self._two_site_terms:
                 H = H + self._embed_two(i, j, op_i, op_j)
+            for site_ops in self._multi_site_terms:
+                H = H + self._embed_multi(site_ops)
             self._matrix_cache = H
         return self._matrix_cache.toarray() if dense else self._matrix_cache
     def exact_diagonalization(self, return_eigenvectors=False, only_ground=True):
@@ -189,9 +295,24 @@ class TFIsing(Hamiltonian):
             self.add_two_site(n_sites - 1, 0, -J * sz, sz)
 
 class Free(Hamiltonian):
-    def __init__(self, n_sites, n_legs= = None, h=1.0):
-        super().__init__(n_sites, n_phys_sites = n_sites)
-        assert n_legs >= n_sites, 'n_legs msut be >= n_sites.'
+    """
+    Free (non-interacting) field:
+        H = -h * Σ_{i=0}^{n_sites-1} Z_i
+
+    Parameters
+    ----------
+    n_sites : number of physical spins.
+    n_legs  : total legs on the TTN node (>= n_sites).
+              Empty legs [n_sites, n_legs) are left untouched —
+              apply_H_eff treats absent sites as identity by isometry.
+              Defaults to n_sites (no empty legs).
+    h       : field strength.
+    """
+    def __init__(self, n_sites, n_legs=None, h=1.0):
+        if n_legs is None:
+            n_legs = n_sites
+        assert n_legs >= n_sites, 'n_legs must be >= n_sites.'
+        super().__init__(n_legs)          # n_legs, not n_sites
         _, sz, _ = paulis()
 
         for i in range(n_sites):
@@ -264,5 +385,3 @@ class lmg(Hamiltonian):
                     self.add_two_site(i, j,
                                       (-prefactor * gamma) * sy,
                                       sy)
-
-
