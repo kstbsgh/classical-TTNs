@@ -10,9 +10,6 @@ from misc import tlist, loc                                                     
 from contextlib import contextmanager
 import hamiltonian as hamm
 
-
-#Using Claude to bugfix the non convergence issue with Ar38.
-
 @contextmanager
 def timed(section, enabled=True, file=None):
     if not enabled:
@@ -997,3 +994,4 @@ ttn2 = ttn(layers = 4, max_bond_dim = 7, local_dim = 2, num_child_nodes = 2, num
 ttn3 = ttn(layers = 3, max_bond_dim = 5, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn4 = ttn(layers = 2, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn5 = ttn(layers = 1, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
+

@@ -378,6 +378,34 @@ def env_operator_sandwich(env_tensor, operators, local_axes):
     return env_flat @ full_op @ env_flat.conj().T     # [bond_dim, bond_dim]
 
 
+def _group_term_by_branch(site_map, site_ops):
+    """
+    Groups the (site, op) pairs of one Hamiltonian term (of any weight — single,
+    two, or multi-site) by which environment branch (env_idx) each site falls
+    into, collecting the operators and local axes for each branch so that a
+    single env_operator_sandwich call can handle however many operators land
+    on the same branch.
+
+    site_map : dict  global_site -> (env_idx, local_axis)
+    site_ops : iterable of (site, op) pairs for this term
+
+    Returns  : dict  env_idx -> (list_of_ops, list_of_local_axes)
+               or None if any site in the term isn't covered by this node
+               (i.e. lies outside the network / wasn't given legs), in which
+               case the whole term should be skipped, exactly as the
+               single/two-site loops already do via `if site not in site_map`.
+    """
+    groups = {}
+    for site, op in site_ops:
+        if site not in site_map:
+            return None
+        env_idx, local_axis = site_map[site]
+        ops, axes = groups.setdefault(env_idx, ([], []))
+        ops.append(op)
+        axes.append(local_axis)
+    return groups
+
+
 def build_H_eff(ttn, locc, env_tensors, hamiltonian):
     """
     Constructs H_eff at locc from the environment tensors returned by effective_network_full
@@ -447,6 +475,21 @@ def build_H_eff(ttn, locc, env_tensors, hamiltonian):
             M_i = env_operator_sandwich(env_tensors[env_i], [op_i], [local_i])
             M_j = env_operator_sandwich(env_tensors[env_j], [op_j], [local_j])
             H_eff += contribution({env_i: M_i, env_j: M_j})
+
+    # Multi-site (3+ body) terms — e.g. from weight->=3 Pauli strings.
+    # A term can span any number of distinct environment branches; group its
+    # (site, op) pairs by branch first, sandwich each branch's operators
+    # together, then take the Kronecker product across branches exactly like
+    # the single/two-site cases above.
+    for site_ops in hamiltonian.multi_site_terms():
+        groups = _group_term_by_branch(site_map, site_ops)
+        if groups is None:
+            continue
+        env_matrices = {
+            env_idx: env_operator_sandwich(env_tensors[env_idx], ops, axes)
+            for env_idx, (ops, axes) in groups.items()
+        }
+        H_eff += contribution(env_matrices)
 
     return H_eff
 
@@ -523,6 +566,17 @@ def apply_H_eff(v, ttn, locc, env_tensors, hamiltonian):
             M_i = env_operator_sandwich(env_tensors[env_i], [op_i], [local_i])
             M_j = env_operator_sandwich(env_tensors[env_j], [op_j], [local_j])
             result += apply_term(v, {env_i: M_i, env_j: M_j})
+
+    # ── Multi-site (3+ body) terms ────────────────────────────────────────────
+    for site_ops in hamiltonian.multi_site_terms():
+        groups = _group_term_by_branch(site_map, site_ops)
+        if groups is None:
+            continue
+        leg_matrices = {
+            env_idx: env_operator_sandwich(env_tensors[env_idx], ops, axes)
+            for env_idx, (ops, axes) in groups.items()
+        }
+        result += apply_term(v, leg_matrices)
 
     return result
 

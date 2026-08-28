@@ -40,4 +40,4 @@ formattedH = (-93.9749221802 * SparsePauliOp.from_list([('III', 1)]) +
               -18.6784057617 * SparsePauliOp.from_list([('ZZZ', 1)]))
 
 ttn_hamiltonian = hamm.Hamiltonian.from_SparsePauliOp(formattedH)
-my_ttn = ttn.ttn(layers = 2, max_bond_dim = 5, local_dim = 2, num_child_nodes = 2, num_roots = 1)
+my_ttn = ttn.ttn(layers = 2, max_bond_dim = 2, local_dim = 2, num_child_nodes = 2, num_roots = 1)
