@@ -1,3 +1,5 @@
+import time
+import numpy as np
 from qiskit.quantum_info import SparsePauliOp
 import hamiltonian as hamm
 import TreeTensorNetworks as ttn
@@ -41,3 +43,20 @@ formattedH = (-93.9749221802 * SparsePauliOp.from_list([('III', 1)]) +
 
 ttn_hamiltonian = hamm.Hamiltonian.from_SparsePauliOp(formattedH)
 my_ttn = ttn.ttn(layers = 2, max_bond_dim = 2, local_dim = 2, num_child_nodes = 2, num_roots = 1)
+
+n_runs = 1000
+run_times = np.empty(n_runs)
+
+for i in range(n_runs):
+    t0 = time.perf_counter()
+    my_ttn.run_sweep(ttn_hamiltonian, plotting=False, logging=False, verbose=False)
+    run_times[i] = time.perf_counter() - t0
+
+avg_time = run_times.mean()
+std_time = run_times.std()
+
+print(f'Ran run_sweep {n_runs} times (plotting=False, logging=False).')
+print(f'Average time per run : {avg_time:.6f} s')
+print(f'Std dev              : {std_time:.6f} s')
+print(f'Min / Max             : {run_times.min():.6f} s / {run_times.max():.6f} s')
+print(f'Total time            : {run_times.sum():.6f} s')

@@ -697,7 +697,20 @@ class ttn:
         # HERE you have to also normalise the tensor at locc.
         return float(evals[level])
     
-    def run_sweep(self, hamiltonian, num_sweeps=2, level =0, logging = False, verbose = True, plotting = True,only_final=True):
+    def run_sweep(self, hamiltonian, num_sweeps=2, level =0, logging = False, verbose = True, plotting = True,only_final=True, plot_exact=False, log_scale=False):
+        '''
+        plot_exact : bool
+            If True (and log_scale is False), overlays a horizontal reference
+            line at the exact ground-state energy (from
+            hamiltonian.exact_diagonalization()) on the energy-vs-sweep plot.
+        log_scale : bool
+            If True, plots log10(|E_exact - E_i|) at every optimisation step
+            instead of the raw energy — the usual convergence-curve view,
+            whose right-hand plateau shows the residual error the TTN
+            settled into. Needs the exact energy either way, so this takes
+            priority over plot_exact (which is only meaningful on the raw
+            energy plot).
+        '''
         energies = []
         sweep = self.sweep
         self.randn_init()
@@ -765,22 +778,70 @@ class ttn:
             for i, sweep_en in enumerate(energies):
                 unravelled_energies += sweep_en
 
-            plt.plot(range(len(unravelled_energies)), unravelled_energies)
-            plt.scatter(range(len(unravelled_energies)), unravelled_energies)
-            
-            min_en = min(unravelled_energies)
-            max_en = max(unravelled_energies)
-
+            unravelled_energies = np.array(unravelled_energies)
+            steps    = np.arange(len(unravelled_energies))
             final_en = unravelled_energies[-1]
-            for i in range(num_sweeps):
-                plt.axvline(x = i*num_tensors ,linestyle = '--', color='k')
-            
-            plt.axhline(y = final_en, ls='--',color='k')
-            plt.grid()
-            plt.xticks(np.arange(num_sweeps*len(self.sweep), step=len(self.sweep)),np.arange(num_sweeps))
-            plt.xlabel('Sweeps')
-            plt.ylabel('Energy')
-            
+
+            exact_en = None
+            if plot_exact or log_scale:
+                exact_en = hamiltonian.exact_diagonalization()
+
+            fig, ax = plt.subplots(figsize=(8, 5), dpi=110)
+
+            # Sweep-boundary guides (skip x=0, it just duplicates the axis)
+            for i in range(1, num_sweeps):
+                ax.axvline(x=i * num_tensors, ls='--', color='0.75', lw=1, zorder=1)
+
+            if log_scale:
+                errors = np.abs(exact_en - unravelled_energies)
+                tiny   = np.finfo(float).tiny
+                errors = np.where(errors == 0, tiny, errors)   # guard log(0)
+                y      = np.log10(errors)
+
+                ax.plot(steps, y, color='#3366CC', lw=1.5, zorder=2)
+                ax.scatter(steps, y, color='#3366CC', s=20, zorder=3,
+                           edgecolor='white', linewidth=0.6)
+
+                final_err     = max(abs(exact_en - final_en), tiny)
+                final_log_err = np.log10(final_err)
+                ax.axhline(y=final_log_err, ls='--', color='k', lw=1,
+                           label=f'Final error = {final_err:.2e}', zorder=1)
+
+                ax.set_ylabel(r'$\log_{10}|E_{\mathrm{exact}} - E|$')
+                ax.set_title(f'TTN convergence to exact energy\n'
+                             f'({self.num_sites} sites, '
+                             fr'$\chi_{{\mathrm{{max}}}}$ = {self.max_bdim})')
+                ax.legend(frameon=False, loc='upper right')
+
+            else:
+                ax.plot(steps, unravelled_energies, color='#3366CC', lw=1.5,
+                        zorder=2, label='TTN energy')
+                ax.scatter(steps, unravelled_energies, color='#3366CC', s=20,
+                           zorder=3, edgecolor='white', linewidth=0.6)
+
+                ax.axhline(y=final_en, ls='--', color='k', lw=1,
+                           label=f'Final energy = {final_en:.6f}', zorder=1)
+
+                if plot_exact:
+                    ax.axhline(y=exact_en, ls='-', color='#CC3333', lw=1.3,
+                               alpha=0.9, label=f'Exact energy = {exact_en:.6f}',
+                               zorder=1)
+
+                ax.set_ylabel('Energy')
+                ax.set_title(f'TTN sweep convergence\n'
+                             f'({self.num_sites} sites, '
+                             fr'$\chi_{{\mathrm{{max}}}}$ = {self.max_bdim})')
+                ax.legend(frameon=False, loc='best')
+
+            ax.set_xlabel('Sweep')
+            ax.set_xticks(np.arange(num_sweeps * num_tensors, step=num_tensors))
+            ax.set_xticklabels(np.arange(num_sweeps))
+            ax.set_xlim(steps[0], steps[-1])
+            ax.grid(alpha=0.3, lw=0.6)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+
+            fig.tight_layout()
             plt.show()
         if only_final:
             return energies[-1][-1]
@@ -994,4 +1055,3 @@ ttn2 = ttn(layers = 4, max_bond_dim = 7, local_dim = 2, num_child_nodes = 2, num
 ttn3 = ttn(layers = 3, max_bond_dim = 5, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn4 = ttn(layers = 2, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn5 = ttn(layers = 1, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
-
