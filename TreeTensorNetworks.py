@@ -714,8 +714,9 @@ class ttn:
         energies = []
         sweep = self.sweep
         self.randn_init()
-        fh = open(f'{self.num_sites}_sites','a', encoding = 'utf-8')
+        fh = None
         if logging:
+            fh = open(f'{self.num_sites}_sites','a', encoding = 'utf-8')
             fh.write('-'*10+'\n')    # add a way of also logging the run number
             fh.write(f'{self.nroots} roots, {self.ncn} child nodes, {self.layers} layers, max_bond_dim = {self.max_bdim}\t {num_sweeps} sweeps\n\n')
         for sweep_i in range(num_sweeps):
@@ -1055,3 +1056,4 @@ ttn2 = ttn(layers = 4, max_bond_dim = 7, local_dim = 2, num_child_nodes = 2, num
 ttn3 = ttn(layers = 3, max_bond_dim = 5, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn4 = ttn(layers = 2, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
 ttn5 = ttn(layers = 1, max_bond_dim = 3, local_dim = 2, num_child_nodes = 2, num_roots = 2)
+
