@@ -20,26 +20,6 @@ def timed(section, enabled=True, file=None):
     dt = time.perf_counter() - t0
     file.write(f"{section:<25} {dt:>10.6f}s\n")
     
-class tfIsingH:
-    def __init__(self, N, h=1.0, J=1.0, pbc=True):
-        self.h   = h
-        self.J   = J
-        self.N   = N       # total number of physical sites
-        self.pbc = pbc
-        self.sig_x = np.array([[0, 1], [1, 0]], dtype=float)
-        self.sig_z = np.array([[1, 0], [0, -1]], dtype=float)
-
-    def single_site_terms(self):
-        """Returns list of (site_index, operator)."""
-        return [(i, -self.h * self.sig_x) for i in range(self.N)]
-
-    def two_site_terms(self):
-        """Returns list of (op_i, op_j, site_i, site_j)."""
-        pairs = [(i, i + 1) for i in range(self.N - 1)]
-        if self.pbc:
-            pairs.append((self.N - 1, 0))
-        return [(-self.J * self.sig_z, self.sig_z, i, j) for i, j in pairs]
-
 
         
 class ttn:
@@ -774,7 +754,6 @@ TO DO:
 '''
 
     
-ham1 = tfIsingH(8)
 ham2 = hamm.TFIsing(7,n_legs = 8,periodic=False)
 ham4 = hamm.TFIsing(4,n_legs = 4,periodic=False)
 hamf = hamm.Free(8)
