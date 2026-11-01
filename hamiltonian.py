@@ -16,7 +16,7 @@ class Hamiltonian:
         self._single_site_terms = []
         self._two_site_terms    = []
         self._multi_site_terms  = []   # terms touching 3+ sites, e.g. from Pauli strings
-        self._matrix_cache      = None      # See if this matrix_cache business is necessary. Remove if not.
+        self._matrix_cache      = None      # TODO See if this matrix_cache business is necessary. Remove if not.
 
     def _invalidate_cache(self):
         self._matrix_cache = None
@@ -180,7 +180,7 @@ class Hamiltonian:
         return self._matrix_cache.toarray() if dense else self._matrix_cache
     def exact_diagonalization(self, return_eigenvectors=False, only_ground=True):
         '''
-        understand how Lanczos works, and see if the Lanczos bit here works well.
+        TODO understand how Lanczos works, and see if the Lanczos bit here works well.
         '''
         H = self.to_matrix()   # sparse
         dim = H.shape[0]

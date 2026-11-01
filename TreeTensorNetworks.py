@@ -753,7 +753,6 @@ TO DO:
    That bit is written again, hardcoded into ttn.run_sweep.
    See if ttn.optimize_tensor is working how it should be (there is one that is commented out, check that as well. ), and then use the method, trimming the amount of code you have.
 
-6. What is _quiet_run_sweep for? remove it if not needed.
 '''
 
     
