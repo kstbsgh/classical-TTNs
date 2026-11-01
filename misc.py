@@ -1,5 +1,3 @@
-
-
 class tlist(list):
     #Code from user Raniz' answer on https://stackoverflow.com/questions/30341008/is-it-possible-to-index-nested-lists-using-tuples-in-python
 
@@ -16,55 +14,6 @@ class tlist(list):
     def __setitem__(self,index,value):
         # could generalise this if you want but no use case.
         self[index[0]][index[1]] = value
-
-
-def parent_location(loc):
-    #Generalise this for an arbitrary tree structure by also taking in the tree structure as an arugment.
-    #(((),()),((),())) is an example of a binary tree structure of two layers.
-    '''
-    PARAMETERS :
-
-    loc : The location tuple of a node in a binary tree.
-
-    RETURNS :
-
-    The location tuple of the parent node in the binary tree.
-    '''
-    assert loc[0]>0, 'A root node has no parent node.'
-    return loc[0] - 1 , loc[1]//2
-    
-
-def adrs(loc):
-    #Generalise this for an arbitrary tree structure by also taking in the tree structure as an arugment.
-    #(((),()),((),())) is an example of a binary tree structure of two layers.
-    '''
-    PARAMETERS :
-
-    loc : The location tuple of a node in a binary tree.
-
-    RETURNS :
-
-    The bitstring address.
-
-    (0,0) --> ''
-    
-    (1,0) --> '0'
-    (1,1) --> '1'
-    
-    (2,0) --> '00' 
-    (2,1) --> '01'
-    (2,2) --> '10'
-    (2,3) --> '11'
-    '''
-    
-    ad = ''
-    s = loc[1]
-    for i in range(loc[0]+1):
-        w = s%self.ncn
-        s = s//self.ncn
-        ad += str(w)
-    ad = ad[::-1]
-    return ad
 
 class loc(tuple):
     """
@@ -227,27 +176,5 @@ class loc(tuple):
         return NotImplemented
 
     
-'''
-class loc(tuple):
-    #create a special tuple type that raises an error when the location is invalid (1,199) is an invalid location in a binary tree.
-    #This should take the tree type as an argument. Default should be a binary tree.
-    #have methods that would return the bitstring address given the location.
-    
-    def __new__(cls, ttn , iterable = ()):
-        obj = super().__new__(cls,iterable)
-        self.layers = ttn.layers
-        assert -2**(self.iterable[0] + 1) <= self.iterable[1] <= 2**(self.iterable[0]+1) - 1, 'Invalid position index {} for a layer number {}'.format(self.iterable[1],self.iterable[0])                      #Change here incase you decide to have a binary tree with one root.
-        assert -self.layers <= self.iterable[0] <= self.layers - 1,  'Invalid layer index {} for a tree with {} layers'.format(self.iterable[0],ttn.layers)
-'''
-'''
-#debug this
-class tlist(nlist):
-    def __getitem__(self,loc):
-        assert loc[1] <= 2**(loc[0]+1) - 1, 'The position index {} exceeds the greatest possible number of nodes {} for layer {}'.format(loc[1],2**(loc[0]+1),loc[0])
-
-        return super().__getitem__(loc)
-
-
-'''
 
 

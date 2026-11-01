@@ -150,7 +150,6 @@ class ttn:
 
         # Update this so that you can also pass the bitstring address.
 
-        #INCOMPLETE
         
         '''
         PARAMETERS :
@@ -221,16 +220,14 @@ class ttn:
     def randn_init(self):
         # Maybe rewrite this after you change the __add__ method for loc tuples, so that you dont have to use a double for loop. 
         '''
-        Initialises all the tensors by assigning random values to the tensors. 
+        Initialises all the tensors by assigning real random values to the tensors. 
         '''
         for li in range(len(self.tensors)):
             for pj in range(len(self.tensors[li])):
                 locc = loc(self,(li,pj))
                 self.tensors[locc] = np.random.randn(*self.shape(locc))       # The * unpacks the tuple.
-                #self.tensors[locc] = np.random.randn(*self.shape(locc)) + 1j*np.random.randn(*self.shape(locc))      # The * unpacks the tuple.
 
         # The resultant tensor is not normalised yet.
-        #return self.tensors
 
     def qr(self,loc,leg):
         '''
@@ -343,15 +340,9 @@ class ttn:
             legs, next_loc = my_nbd[my_iso_index]
             next_loc_index = legs[1]
             
-            #print(f'my loc = {my_loc}, my iso index = {my_iso_index}, next_loc = {next_loc}, next loc index = {next_loc_index}, ')
-            #print(f'my shape = {self.tensors[my_loc].shape}, my q shape = {my_q.shape}, my r shape = {my_r.shape}, next tensor shape = {self.tensors[next_loc].shape}\n')
             self.tensors[my_loc] = my_q                 # Replacing the tensor with the isometrised tensor
             next_tensor = self.tensors[next_loc]
             self.tensors[next_loc] = qr.combine(next_tensor, my_r, next_loc_index, 1)
-            '''
-            if self.shape_list != shape_list:
-                print(f'Daal mein kuch kaala hai, {self.shape_list}, while og shape list is {shape_list}')
-            '''
 
     def leaf_indices(self,loc):
         '''
@@ -655,6 +646,11 @@ class ttn:
         return energies
     
     def _quiet_run_sweep(self, hamiltonian, num_sweeps):
+        '''
+        the same as run_sweep without the bells and whistles. 
+        mostly for debugging. Remove it when done. 
+        Maybe we can break the bigger function down into more readable bits, like moving the plotting to a different method entirely.
+        '''
         sweep = self.sweep
         self.randn_init()
 
@@ -686,7 +682,6 @@ class ttn:
             energies.append(sweep_energies)
             #print(f'\nsweep {sweep_i} over')
         
-        #print('\n---------------------ground state obtained-----------------\n')
         """
         unravelled_energies = []
         num_tensors = len(self.sweep)
@@ -717,8 +712,7 @@ class ttn:
 
         
     
-    '''
-    def run_sweep(self, hamiltonian, num_sweeps=1, verbose=True):
+    def run_sweepp(self, hamiltonian, num_sweeps=1, verbose=True):
         """
         Main variational sweep. For each loc in self.sweep: isometrise → build H_eff
         → optimise tensor. Repeats for num_sweeps full passes.
@@ -735,7 +729,6 @@ class ttn:
                 print(f'Sweep {sweep_idx + 1:3d}:  E = {last_energy:.10f}')
         return energies
 
-    '''
     
     def flush(self):
         '''
@@ -749,12 +742,22 @@ class ttn:
         
 '''
 TO DO:
-1. Check if the network if being normalised after optimisation
-2. Include method to contract the network with its conjugate
+1. Check if the network if being normalised after optimisation (is that even important?)
+2. Get unbalanced ttns working.
+3. Integrate MultiSiteOperator
+
+4. For some reason, run_sweep is working better than run_sweepp, 
+   even though run sweep is just a riced up version of run_swepp. Look into why that is, and remove the duplicate.
+
+5. Note that the method ttn.optimize_tensor is not actually being used in ttn.run_sweep.
+   That bit is written again, hardcoded into ttn.run_sweep.
+   See if ttn.optimize_tensor is working how it should be (there is one that is commented out, check that as well. ), and then use the method, trimming the amount of code you have.
+
+6. What is _quiet_run_sweep for? remove it if not needed.
 '''
 
     
-ham2 = hamm.TFIsing(7,n_legs = 8,periodic=False)
+ham2 = hamm.TFIsing(8,n_legs = 8,periodic=False)
 ham4 = hamm.TFIsing(4,n_legs = 4,periodic=False)
 hamf = hamm.Free(8)
 ham3 = hamm.TFIsing(16, n_legs = 16,periodic = True)

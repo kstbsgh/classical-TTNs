@@ -16,7 +16,7 @@ class Hamiltonian:
         self._single_site_terms = []
         self._two_site_terms    = []
         self._multi_site_terms  = []   # terms touching 3+ sites, e.g. from Pauli strings
-        self._matrix_cache      = None
+        self._matrix_cache      = None      # See if this matrix_cache business is necessary. Remove if not.
 
     def _invalidate_cache(self):
         self._matrix_cache = None
@@ -179,6 +179,9 @@ class Hamiltonian:
             self._matrix_cache = H
         return self._matrix_cache.toarray() if dense else self._matrix_cache
     def exact_diagonalization(self, return_eigenvectors=False, only_ground=True):
+        '''
+        understand how Lanczos works, and see if the Lanczos bit here works well.
+        '''
         H = self.to_matrix()   # sparse
         dim = H.shape[0]
 
@@ -222,44 +225,7 @@ class Hamiltonian:
                 )
             evals, evecs = np.linalg.eigh(H.toarray())
         return (evals, evecs) if return_eigenvectors else evals
-    '''
-    def exact_diagonalization(self, return_eigenvectors=False, only_ground=True):
-        H = self.to_matrix()
 
-        if only_ground:
-            
-            evals, evecs = eigsh(H, k=1, which="SA")
-            if return_eigenvectors:
-                return evals[0], evecs[:, 0]   
-            return evals[0]
-        else:
-           
-            H_dense = self.to_matrix(dense=True)
-            evals, evecs = np.linalg.eigh(H_dense)
-            if return_eigenvectors:
-                return evals, evecs
-            return evals
-    '''
-
-'''
-
-class TFIsing(Hamiltonian):
-    def __init__(self, n_sites, n_legs, J=1.0, h=1.0, periodic=False):
-        super().__init__(n_sites)
-        
-        assert n_sites <= n_legs, 'Need n_sites to be <= number of legs'
-
-        n_left_empty = n_legs - n_sites
-        sx, sz, I = paulis()
-        # transverse field
-        for i in range(n_sites):
-            self.add_single_site(i, -h * sx)
-        for i in range(n_sites, n_legs):
-            self.add_single_site(i, I)
-        # ZZ interactions
-        for i in range(n_sites - 1):
-            self.add_two_site(i, i+1, -J * sz, sz)
-'''
 
 class TFIsing(Hamiltonian):
     """
